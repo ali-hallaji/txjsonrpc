@@ -30,6 +30,23 @@ Boolean = xmlrpclib.Boolean
 DateTime = xmlrpclib.DateTime
 
 
+def withRequest(f):
+    """
+    Decorator to cause the request to be passed as the first argument
+    to the method.
+    If an I{jsonrpc_} method is wrapped with C{withRequest}, the
+    request object is passed as the first argument to that method.
+    For example::
+        @withRequest
+        def jsonrpc_getClientIP(self, request):
+            ip_address = request.getClientIP()
+            return ip_address
+    """
+    f.withRequest = True
+    return f
+
+
+
 class NoSuchFunction(Fault):
     """
     There is no function by the given name.
@@ -116,7 +133,10 @@ class JSONRPC(resource.Resource, BaseSubhandler):
                 request.setHeader("content-type", "text/json")
             else:
                 request.setHeader("content-type", "text/javascript")
-            d = defer.maybeDeferred(function, *args)
+            if getattr(function, 'withRequest', False):
+                d = defer.maybeDeferred(function, request, *args)
+            else:
+                d = defer.maybeDeferred(function, *args)
             d.addErrback(self._ebRender, id)
             d.addCallback(self._cbRender, request, id, version)
         return server.NOT_DONE_YET
